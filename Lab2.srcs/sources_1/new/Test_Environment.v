@@ -36,7 +36,9 @@ module Test_Environment();
         clk = 0;
         forever #5 clk = ~clk; // Переключение через 5 нс
     end
-
+    
+    integer i;
+    
     initial begin
         reset = 1;
         in_valid = 0;
@@ -44,44 +46,40 @@ module Test_Environment();
         access_index = 0;
         #10;
         reset = 0;
-
+        
+        // Test buffer load sequentially
+        $display("Test 1: buffer loading sequentially");
         #10;
-        in_valid = 1;
-        in_data = 8'hAA;
-        #10;
-        in_valid = 0;
-        #10;
-
-        out_ready = 1;
-        access_index = 0;
-        #10;
-
-        if (out_valid && out_data == 8'hAA) begin
-            $display("Test 1 Passed: Read data %h", out_data);
-        end else begin
-            $display("Test 1 Failed: Read data %h", out_data);
+        
+        for (i = 1; i <= 8; i = i + 1) begin
+            in_data = 8'h0 + i;
+            in_valid = 1;
+            #10;
+            in_valid = 0;
+            #10;
+        end
+        
+        for (i = 0; i < 8; i = i + 1) begin
+            access_index = i;
+            out_ready = 1;
+            #10;
+        
+            if (out_valid && out_data == (8'h0 + i + 1)) begin
+                $display("Test 1: buffer[%0d] = %h - passed", i, out_data);
+            end else begin
+                $display("Test 1: buffer[%0d] = %h - failed!", i, out_data);
+            end
+            out_ready = 0;
         end
 
+
+        
+        // Test buffer correct displacement
+        $display("Test 2: correct displacement");
+
         #10;
+        in_data = 8'd52;
         in_valid = 1;
-        in_data = 8'hBB;
-        #10;
-        in_valid = 0;
-        #10;
-
-        access_index = 1;
-        out_ready = 1;
-        #10;
-
-        if (out_valid && out_data == 8'hBB) begin
-            $display("Test 2 Passed: Read data %h", out_data);
-        end else begin
-            $display("Test 2 Failed: Read data %h", out_data);
-        end
-
-        #10;
-        in_valid = 1;
-        in_data = 8'hCC;
         #10;
         in_valid = 0;
         #10;
@@ -89,13 +87,36 @@ module Test_Environment();
         access_index = 0;
         out_ready = 1;
         #10;
-
-        if (out_valid && out_data == 8'hAA) begin
-            $display("Test 3 Passed: Read old data %h", out_data);
+        if (out_valid && out_data == 8'd52) begin
+            $display("Test 2: buffer[%0d] = %h - passed", access_index, out_data);
         end else begin
-            $display("Test 3 Failed: Read old data %h", out_data);
+            $display("Test 2: buffer[%0d] = %h - failed!", access_index, out_data);
         end
-
+        
+        // 3x access to 2'nd element
+        for (i = 0; i < 3; i = i + 1) begin
+            access_index = 1;
+            out_ready = 1;
+            #10;
+        end
+        
+        // now buffer must replace 3'rd element
+        in_data = 8'd62;
+        in_valid = 1;
+        #10;
+        in_valid = 0;
+        #10;
+        
+        access_index = 2;
+        out_ready = 1;
+        #10;
+        if (out_valid && out_data == 8'd62) begin
+            $display("Test 2: buffer[%0d] = %h - passed", access_index, out_data);
+        end else begin
+            $display("Test 2: buffer[%0d] = %h - passed", access_index, out_data);
+        end
+        out_ready = 0;
+        
         $stop;
     end
 endmodule

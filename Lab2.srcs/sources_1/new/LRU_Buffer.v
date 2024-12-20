@@ -8,50 +8,78 @@ module LRU_Buffer #(
     input wire reset,
     
     input wire in_valid,     // источник готов отдать данные
-    input wire [7:0] in_data,
+    input wire [DATA_SIZE - 1:0] in_data,
     output reg in_ready,     // мы готовы принять данные с источника
     
-    output reg [7:0] out_data,
+    output reg [DATA_SIZE - 1:0] out_data,
     input wire out_ready,    // получатель готов принять данные
-    input wire [2:0] req_idx,
-    output reg out_valid     // мы готовы отдать данные
+    output reg out_valid,    // мы готовы отдать данные
+    
+    input [$clog2(CACHE_SIZE)-1:0] access_index
 );
-
-    reg [7:0] in_data_reg [0:CACHE_SIZE-1];
-    reg [7:0] out_data_reg [0:CACHE_SIZE-1];
-    reg [7:0] cache_data [0:CACHE_SIZE-1];
-    reg [2:0] req_idx_reg;
+    
+    reg [DATA_SIZE - 1:0] cache_data [0:CACHE_SIZE - 1];
+    
+    reg [$clog2(CACHE_SIZE)-1:0] timestamps[0:CACHE_SIZE - 1];
     
     integer i;
     
-    always @(posedge clk or posedge reset) begin
+    reg [$clog2(CACHE_SIZE)-1:0] replace_index;
+    reg [$clog2(CACHE_SIZE)-1:0] min_used_time;
+    reg [$clog2(CACHE_SIZE)-1:0] last_cache_update_time;
+    
+    always @(posedge clk or posedge reset) begin     
         if (reset) begin
-            req_idx_reg <= 0;
-            in_ready <= 1'b1;
-            out_valid <= 0;
+            out_valid <= 0;   // мы не готовы отдать данные
+            in_ready <= 1'b0; // мы не готовы принять данные с источника
+            
+            replace_index = 0;
+            min_used_time = 0;
+            last_cache_update_time = 0;
+            
             for (i = 0; i < CACHE_SIZE; i = i + 1) begin
-                in_data_reg[i] <= 0;
-                out_data_reg[i] <= 0;
                 cache_data[i] <= 0;
+                timestamps[i] = 0;
             end
+            
+            in_ready <= 1'b1; // мы готовы принять данные с источника
+            
         end else begin
-            if (in_valid) begin
-                out_valid <= 0;
-                in_ready <= 0;
+            if (in_valid && in_ready) begin
                 
-                // process...
-                            
-                out_valid <= 1'b1;
-                in_ready <= 1'b1;
+                // Ищем наименее приоритетный элемент
+                replace_index = 0;
+                min_used_time = timestamps[0];
+                for (i = 0; i < CACHE_SIZE; i = i + 1) begin
+                    if (timestamps[i] < min_used_time) begin
+                        min_used_time = timestamps[i];
+                        replace_index = i;
+                    end
+                end
+                
+                cache_data[replace_index] <= in_data;
+                
+                // обновляем приоритет
+                last_cache_update_time = last_cache_update_time + 1;
+                timestamps[replace_index] <= last_cache_update_time;
+                
+                in_ready <= 1'b0; // мы не готовы принять данные с источника
             end
+            if (!in_valid) begin
+                in_ready <= 1'b1; // мы готовы принять данные с источника
+            end
+            
             if (out_ready) begin
-                out_valid <= 0;
-                in_ready <= 0;
                 
-                out_data <= cache_data[req_idx_reg];
+                out_data <= cache_data[access_index];
                 
-                out_valid <= 1'b1;
-                in_ready <= 1'b1;
+                // обновляем приоритет
+                last_cache_update_time = last_cache_update_time + 1;
+                timestamps[access_index] <= last_cache_update_time;
+                
+                out_valid <= 1'b1;          
+            end else begin
+                out_valid <= 0; // если источник считал прошлые данные, мы не готовы отдавать новые
             end
         end
     end

@@ -2,7 +2,8 @@
 
 module LRU_Buffer #(
     parameter CACHE_SIZE = 8,
-    parameter DATA_SIZE = 8
+    parameter DATA_SIZE = 8,
+    parameter MAX_SIZE = 2000
 )(
     input wire clk,
     input wire reset,
@@ -20,13 +21,13 @@ module LRU_Buffer #(
     
     reg [DATA_SIZE - 1:0] cache_data [0:CACHE_SIZE - 1];
     
-    reg [$clog2(CACHE_SIZE)-1:0] timestamps[0:CACHE_SIZE - 1];
+    reg [$clog2(MAX_SIZE)-1:0] timestamps[0:CACHE_SIZE - 1];
     
     integer i;
     
     reg [$clog2(CACHE_SIZE)-1:0] replace_index;
-    reg [$clog2(CACHE_SIZE)-1:0] min_used_time;
-    reg [$clog2(CACHE_SIZE)-1:0] last_cache_update_time;
+    reg [$clog2(MAX_SIZE)-1:0] min_used_time;
+    reg [$clog2(MAX_SIZE)-1:0] last_cache_update_time;
     
     always @(posedge clk or posedge reset) begin     
         if (reset) begin
@@ -69,6 +70,7 @@ module LRU_Buffer #(
                 in_ready <= 1'b1; // мы готовы принять данные с источника
             end
             
+
             if (out_ready) begin
                 
                 out_data <= cache_data[access_index];

@@ -65,9 +65,9 @@ module Test_Environment();
             #10;
         
             if (out_valid && out_data == (8'h0 + i + 1)) begin
-                $display("Test 1: buffer[%0d] = %h - passed", i, out_data);
+                $display("Test 1: buffer[%0d] = %d - passed", i, out_data);
             end else begin
-                $display("Test 1: buffer[%0d] = %h - failed!", i, out_data);
+                $display("Test 1: buffer[%0d] = %d - failed!", i, out_data);
             end
             out_ready = 0;
         end
@@ -76,7 +76,22 @@ module Test_Environment();
         
         // Test buffer correct displacement
         $display("Test 2: correct displacement");
-
+        #10;
+        reset = 1;
+        in_valid = 0;
+        out_ready = 0;
+        access_index = 0;
+        #10;
+        reset = 0;
+        
+        for (i = 1; i <= 8; i = i + 1) begin
+            in_data = 8'h0 + i;
+            in_valid = 1;
+            #10;
+            in_valid = 0;
+            #10;
+        end
+        
         #10;
         in_data = 8'd52;
         in_valid = 1;
@@ -88,9 +103,9 @@ module Test_Environment();
         out_ready = 1;
         #10;
         if (out_valid && out_data == 8'd52) begin
-            $display("Test 2: buffer[%0d] = %h - passed", access_index, out_data);
+            $display("Test 2: buffer[%0d] = %d - passed", access_index, out_data);
         end else begin
-            $display("Test 2: buffer[%0d] = %h - failed!", access_index, out_data);
+            $display("Test 2: buffer[%0d] = %d - failed!", access_index, out_data);
         end
         
         // 3x access to 2'nd element
@@ -111,11 +126,128 @@ module Test_Environment();
         out_ready = 1;
         #10;
         if (out_valid && out_data == 8'd62) begin
-            $display("Test 2: buffer[%0d] = %h - passed", access_index, out_data);
+            $display("Test 2: buffer[%0d] = %d - passed", access_index, out_data);
         end else begin
-            $display("Test 2: buffer[%0d] = %h - passed", access_index, out_data);
+            $display("Test 2: buffer[%0d] = %d - failed!", access_index, out_data);
         end
         out_ready = 0;
+        
+        
+        
+        // Test 3: further displacement test
+        $display("Test 3: another displacement test");
+        #10;
+        reset = 1;
+        in_valid = 0;
+        out_ready = 0;
+        access_index = 0;
+        #10;
+        reset = 0;
+        
+        // Заполняем буфер данными от 0 до 7
+        for (i = 0; i < 8; i = i + 1) begin
+            in_data = 8'h0 + i;
+            in_valid = 1;
+            #10;
+            in_valid = 0;
+            #10;
+        end
+
+        // Доступ к нескольким элементам, чтобы изменить порядок LRU
+        access_index = 0;
+        out_ready = 1;
+        #10;
+        access_index = 1;
+        #10;
+        access_index = 2;
+        #10;
+        access_index = 3;
+        #10;
+        
+        // Вставляем новое значение, вызывая вытеснение
+        in_data = 8'd72;
+        in_valid = 1;
+        #10;
+        in_valid = 0;
+        #10;
+
+        // Проверяем, что вытеснился наименее используемый элемент (индекс 7)
+        access_index = 4;
+        out_ready = 1;
+        #10;
+        if (out_valid && out_data == 8'd72) begin
+            $display("Test 3: buffer[%0d] = %d - passed", access_index, out_data);
+        end else begin
+            $display("Test 3: buffer[%0d] = %d - failed!", access_index, out_data);
+        end
+        out_ready = 0;
+
+        // 3x access to 5'th element
+        for (i = 0; i < 3; i = i + 1) begin
+            access_index = 4;
+            out_ready = 1;
+            #10;
+        end
+        
+        // Вставляем новое значение, вызывая вытеснение
+        in_data = 8'd66;
+        in_valid = 1;
+        #10;
+        in_valid = 0;
+        #10;
+        
+        access_index = 5;
+        out_ready = 1;
+        #10;
+        if (out_valid && out_data == 8'd66) begin
+            $display("Test 3: buffer[%0d] = %d - passed", access_index, out_data);
+        end else begin
+            $display("Test 3: buffer[%0d] = %d - failed!", access_index, out_data);
+        end
+        
+        // 4x access to 7'th element
+        for (i = 0; i < 3; i = i + 1) begin
+            access_index = 6;
+            out_ready = 1;
+            #10;
+        end
+        
+        // 4x access to 8'st element
+        for (i = 0; i < 3; i = i + 1) begin
+            access_index = 7;
+            out_ready = 1;
+            #10;
+        end
+        
+        in_data = 8'd222;
+        in_valid = 1;
+        #10;
+        in_valid = 0;
+        #10;
+        
+        access_index = 0;
+        out_ready = 1;
+        #10;
+        if (out_valid && out_data == 8'd222) begin
+            $display("Test 3: buffer[%0d] = %d - passed", access_index, out_data);
+        end else begin
+            $display("Test 3: buffer[%0d] = %d - failed!", access_index, out_data);
+        end
+        
+        in_data = 8'd233;
+        in_valid = 1;
+        #10;
+        in_valid = 0;
+        #10;
+        
+        access_index = 1;
+        out_ready = 1;
+        #10;
+        if (out_valid && out_data == 8'd233) begin
+            $display("Test 3: buffer[%0d] = %d - passed", access_index, out_data);
+        end else begin
+            $display("Test 3: buffer[%0d] = %d - failed!", access_index, out_data);
+        end
         
         $stop;
     end

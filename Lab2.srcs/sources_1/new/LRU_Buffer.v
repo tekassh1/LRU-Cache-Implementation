@@ -40,11 +40,20 @@ module LRU_Buffer #(
             
             for (i = 0; i < CACHE_SIZE; i = i + 1) begin
                 cache_data[i] <= 0;
+                timestamps[i] <= 0;
             end
             
             in_ready <= 1'b1; // мы готовы принять данные с источника
             
         end else begin
+        
+            // Normalisation to avoid overflow
+            if (last_cache_update_time == MAX_SIZE - 1) begin
+                for (i = 0; i < CACHE_SIZE; i = i + 1) begin
+                    timestamps[i] <= (timestamps[i] / 2048) * CACHE_SIZE;
+                end
+            end
+            
             if (in_valid && in_ready) begin
                 
                 // Ищем наименее приоритетный элемент
@@ -81,21 +90,6 @@ module LRU_Buffer #(
                 out_valid <= 1'b1;          
             end else begin
                 out_valid <= 0; // если источник считал прошлые данные, мы не готовы отдавать новые
-            end
-        end
-    end
-    
-    // Normalisation to avoid overflow
-    always @(posedge clk or posedge reset) begin
-        if (reset) begin
-            for (i = 0; i < CACHE_SIZE; i = i + 1) begin
-                timestamps[i] <= 0;
-            end
-        end else begin
-            if (last_cache_update_time == MAX_SIZE - 1) begin
-                for (i = 0; i < CACHE_SIZE; i = i + 1) begin
-                    timestamps[i] <= (timestamps[i] / 2048) * CACHE_SIZE;
-                end
             end
         end
     end

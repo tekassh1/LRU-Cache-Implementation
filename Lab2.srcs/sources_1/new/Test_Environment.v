@@ -144,7 +144,6 @@ module Test_Environment();
         #10;
         reset = 0;
         
-        // Заполняем буфер данными от 0 до 7
         for (i = 0; i < 8; i = i + 1) begin
             in_data = 8'h0 + i;
             in_valid = 1;
@@ -153,7 +152,7 @@ module Test_Environment();
             #10;
         end
 
-        // Доступ к нескольким элементам, чтобы изменить порядок LRU
+
         access_index = 0;
         out_ready = 1;
         #10;
@@ -164,14 +163,12 @@ module Test_Environment();
         access_index = 3;
         #10;
         
-        // Вставляем новое значение, вызывая вытеснение
         in_data = 8'd72;
         in_valid = 1;
         #10;
         in_valid = 0;
         #10;
 
-        // Проверяем, что вытеснился наименее используемый элемент (индекс 7)
         access_index = 4;
         out_ready = 1;
         #10;
@@ -189,7 +186,6 @@ module Test_Environment();
             #10;
         end
         
-        // Вставляем новое значение, вызывая вытеснение
         in_data = 8'd66;
         in_valid = 1;
         #10;

@@ -40,7 +40,6 @@ module LRU_Buffer #(
             
             for (i = 0; i < CACHE_SIZE; i = i + 1) begin
                 cache_data[i] <= 0;
-                timestamps[i] = 0;
             end
             
             in_ready <= 1'b1; // мы готовы принять данные с источника
@@ -85,5 +84,20 @@ module LRU_Buffer #(
             end
         end
     end
-
+    
+    // Normalisation to avoid overflow
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            for (i = 0; i < CACHE_SIZE; i = i + 1) begin
+                timestamps[i] <= 0;
+            end
+        end else begin
+            if (last_cache_update_time == MAX_SIZE - 1) begin
+                for (i = 0; i < CACHE_SIZE; i = i + 1) begin
+                    timestamps[i] <= (timestamps[i] / 2048) * CACHE_SIZE;
+                end
+            end
+        end
+    end
+    
 endmodule

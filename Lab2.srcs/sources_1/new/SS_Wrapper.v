@@ -2,7 +2,7 @@ module SevenSegment(
     input clk,
     
     input wire [7:0] input_number, 
-    input wire io_mode,                     // 1 - input, 0 - output
+    input wire io_mode,                     // 0 - output, 1 - input
     input wire [3:0] out_mode_selected_idx,
     input wire input_mode_nums_amount,      // 0 - one number, 1 - two numbers input
     
@@ -25,7 +25,7 @@ module SevenSegment(
     end
     
     always @(posedge clk) begin
-        counter <= counter + 1;    
+        counter <= counter + 1;
         if(counter <= 40000) begin                              AN = 8'b11111110;
             case (input_number[3:0])
                 4'b0000: display_out = 8'b00000011;

@@ -5,7 +5,7 @@ module Module_Wrapper (
     input  wire CPU_RESETN,
     
     input wire BTND, // change mode (Input, Output)
-    input wire BTNR, // increase buffer index to output (Input mode - one or two numbers input, Output mode - out index)
+    input wire BTNR, // increase number (Input mode - one or two numbers input, Output mode - out index)
     input wire BTNC, // Input / Output
     
     input  wire [15:0] SW,
@@ -24,35 +24,36 @@ module Module_Wrapper (
     wire clk = CLK100MHZ;
     wire reset = ~CPU_RESETN;
     
-    wire io_mode = 1; // 1 - input, 0 - output
-    
     wire BTND_debounced;
     wire BTNR_debounced;
     wire BTNC_debounced;
     
-    Debouncer BTND_deb (.clk(clk), .reset(reset), .btn_in(BTND), .btn_out_(BTND_debounced));
-    Debouncer BTNR_deb (.clk(clk), .reset(reset), .btn_in(BTNR), .btn_out_(BTNR_debounced));
-    Debouncer BTNC_deb (.clk(clk), .reset(reset), .btn_in(BTNC), .btn_out_(BTNC_debounced));
+    Debouncer BTND_deb (.clk(clk), .reset(reset), .btn_in(BTND), .btn_out(BTND_debounced));
+    Debouncer BTNR_deb (.clk(clk), .reset(reset), .btn_in(BTNR), .btn_out(BTNR_debounced));
+    Debouncer BTNC_deb (.clk(clk), .reset(reset), .btn_in(BTNC), .btn_out(BTNC_debounced));
+    
+    reg io_mode; // 1 - input, 0 - output
     
     wire [7:0] first_number = SW[7:0];
     wire [7:0] second_number = SW[15:8];
     
-    wire out_ready; // мы готовы принять данные
-    wire in_valid;  // мы готовы отдать данные
+    reg out_ready; // мы готовы принять данные
+    reg in_valid;  // мы готовы отдать данные
     
     wire out_valid; // подмодуль готов отдать данные
     wire in_ready;  // подмодуль готов принять данные
     
-    wire [$clog2(8)-1:0] access_index = SW[12:10];
+    wire [$clog2(8)-1:0] access_index;
     
-    wire [7:0] out_data;
-
+    wire [7:0] buffer_out_data;
+    reg [7:0] buffer_in_data;
+    
     // Seven Segment bus
-    wire [7:0] input_number; 
-    wire [3:0] out_mode_selected_idx;
-    wire input_mode_nums_amount;      // 0 - one number, 1 - two numbers input
-
-
+    reg [7:0] input_number; 
+    reg [3:0] out_mode_selected_idx;
+    
+    reg input_mode_nums_amount;      // 0 - one number, 1 - two numbers input
+    reg first_number_written;
     
     LRU_Buffer #(
         .CACHE_SIZE(8),
@@ -62,18 +63,18 @@ module Module_Wrapper (
         .clk(CLK100MHZ),
         .reset(reset),
         .in_valid(in_valid),
-        .in_data(in_data),
+        .in_data(buffer_in_data),
         .in_ready(in_ready),
-        .out_data(out_data),
+        .out_data(buffer_out_data),
         .out_ready(out_ready),
         .out_valid(out_valid),
-        .access_index(access_index)
+        .access_index(out_mode_selected_idx)
     );
     
     SevenSegment s_segment (
         .clk(CLK100MHZ),
          
-        .input_number(input_number), 
+        .input_number(buffer_out_data), 
         .io_mode(io_mode),                                    // 1 - input, 0 - output
         .out_mode_selected_idx(out_mode_selected_idx),
         .input_mode_nums_amount(input_mode_nums_amount),      // 0 - one number, 1 - two numbers input
@@ -91,15 +92,58 @@ module Module_Wrapper (
     
     always @(posedge clk or posedge reset) begin
         if (reset) begin
-            
+            in_valid <= 0;
+            out_ready <= 0;
+            io_mode <= 1'b1;
+            first_number_written <= 0;
         end else begin
-            if (io_mode) begin // Input mode
-                
-            end else begin // Output mode
-                
-            end 
+        
+            if (BTND_debounced) begin
+                io_mode <= ~io_mode;
+                out_ready <= 0;
+                in_valid <= 0;
+            end
+            if (BTNR_debounced) begin
+                if (io_mode == 0) begin                   // Output
+                    if (out_mode_selected_idx == 7) begin
+                        out_mode_selected_idx <= 0;
+                    end else begin
+                        out_mode_selected_idx <= out_mode_selected_idx + 1;
+                    end
+                end else begin                            // Input
+                    input_mode_nums_amount <= ~input_mode_nums_amount;
+                end
+            end
+            
+            // Main logic processing
+            if (BTNC_debounced) begin
+                if (io_mode) begin                                             // Input mode
+                    if (in_ready) begin
+                        if (!input_mode_nums_amount) begin // Input one number
+                            buffer_in_data <= first_number;
+                            in_valid <= 1;
+                        end else begin                                         // Input two numbers
+                            if (!first_number_written) begin
+                                buffer_in_data <= first_number;
+                                in_valid <= 1;
+                                first_number_written <= 1'b1;
+                            end else begin
+                                buffer_in_data <= second_number;
+                                in_valid <= 1;
+                                first_number_written <= 0;
+                            end
+                        end
+                    end else begin
+                        in_valid <= 0;
+                    end
+                end else begin                                                 // Output mode
+                    out_ready <= 1;
+                    if (out_valid) begin
+                        out_ready <= 0;
+                    end
+                end
+            end
         end
     end
-end
     
 endmodule

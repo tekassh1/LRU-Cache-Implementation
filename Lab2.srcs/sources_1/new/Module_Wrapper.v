@@ -50,7 +50,7 @@ module Module_Wrapper (
     
     // Seven Segment bus
     reg [7:0] input_number; 
-    reg [3:0] out_mode_selected_idx;
+    reg [2:0] out_mode_selected_idx;
     
     reg input_mode_nums_amount;      // 0 - one number, 1 - two numbers input
     reg first_number_written;

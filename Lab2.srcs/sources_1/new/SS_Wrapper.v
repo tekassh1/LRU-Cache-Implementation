@@ -3,7 +3,7 @@ module SevenSegment(
     
     input wire [7:0] input_number, 
     input wire io_mode,                     // 0 - output, 1 - input
-    input wire [3:0] out_mode_selected_idx,
+    input wire [2:0] out_mode_selected_idx,
     input wire input_mode_nums_amount,      // 0 - one number, 1 - two numbers input
     
     output reg [7:0] AN,

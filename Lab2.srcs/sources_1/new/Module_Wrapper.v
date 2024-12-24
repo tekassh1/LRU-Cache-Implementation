@@ -57,7 +57,6 @@ module Module_Wrapper (
     reg [7:0] buffer_in_data;
     
     // Seven Segment bus
-    reg [7:0] input_number; 
     reg [2:0] out_mode_selected_idx;
     
     reg input_mode_nums_amount;      // 0 - one number, 1 - two numbers input
@@ -102,6 +101,7 @@ module Module_Wrapper (
             first_number_written <= 0;
             input_mode_nums_amount <= 0;
             out_mode_selected_idx <= 0;
+            buffer_in_data <= 0;
         end else begin
         
             if (BTND_debounced) begin
@@ -109,6 +109,7 @@ module Module_Wrapper (
                 out_ready <= 0;
                 in_valid <= 0;
             end
+            
             if (BTNR_debounced) begin
                 if (!io_mode) begin                   // Output
                     if (out_mode_selected_idx == 7) begin

@@ -24,13 +24,21 @@ module Module_Wrapper (
     wire clk = CLK100MHZ;
     wire reset = ~CPU_RESETN;
     
+    wire clk_div;
+    
+    FreqDivider freq_div (
+        .clk_in(clk),
+        .reset(reset),
+        .clk_out(clk_div)
+    );
+    
     wire BTND_debounced;
     wire BTNR_debounced;
     wire BTNC_debounced;
     
-    Debouncer BTND_deb (.clk(clk), .reset(reset), .btn_in(BTND), .btn_out(BTND_debounced));
-    Debouncer BTNR_deb (.clk(clk), .reset(reset), .btn_in(BTNR), .btn_out(BTNR_debounced));
-    Debouncer BTNC_deb (.clk(clk), .reset(reset), .btn_in(BTNC), .btn_out(BTNC_debounced));
+    Debouncer BTND_deb (.clk(clk_div), .reset(reset), .btn_in(BTND), .btn_out(BTND_debounced));
+    Debouncer BTNR_deb (.clk(clk_div), .reset(reset), .btn_in(BTNR), .btn_out(BTNR_debounced));
+    Debouncer BTNC_deb (.clk(clk_div), .reset(reset), .btn_in(BTNC), .btn_out(BTNC_debounced));
     
     reg io_mode; // 1 - input, 0 - output
     
@@ -55,12 +63,8 @@ module Module_Wrapper (
     reg input_mode_nums_amount;      // 0 - one number, 1 - two numbers input
     reg first_number_written;
     
-    LRU_Buffer #(
-        .CACHE_SIZE(8),
-        .DATA_SIZE(8),
-        .MAX_SIZE(2000)
-    ) buffer (
-        .clk(CLK100MHZ),
+    LRU_Buffer buffer (
+        .clk(clk_div),
         .reset(reset),
         .in_valid(in_valid),
         .in_data(buffer_in_data),
@@ -72,7 +76,7 @@ module Module_Wrapper (
     );
     
     SevenSegment s_segment (
-        .clk(CLK100MHZ),
+        .clk(clk_div),
          
         .input_number(buffer_out_data), 
         .io_mode(io_mode),                                    // 1 - input, 0 - output
@@ -90,12 +94,14 @@ module Module_Wrapper (
         .DP(DP)
     );
     
-    always @(posedge clk or posedge reset) begin
+    always @(posedge clk_div or posedge reset) begin
         if (reset) begin
             in_valid <= 0;
             out_ready <= 0;
             io_mode <= 1'b1;
             first_number_written <= 0;
+            input_mode_nums_amount <= 0;
+            out_mode_selected_idx <= 0;
         end else begin
         
             if (BTND_debounced) begin
@@ -104,7 +110,7 @@ module Module_Wrapper (
                 in_valid <= 0;
             end
             if (BTNR_debounced) begin
-                if (io_mode == 0) begin                   // Output
+                if (!io_mode) begin                   // Output
                     if (out_mode_selected_idx == 7) begin
                         out_mode_selected_idx <= 0;
                     end else begin
@@ -117,30 +123,28 @@ module Module_Wrapper (
             
             // Main logic processing
             if (BTNC_debounced) begin
-                if (io_mode) begin                                             // Input mode
-                    if (in_ready) begin
-                        if (!input_mode_nums_amount) begin // Input one number
-                            buffer_in_data <= first_number;
-                            in_valid <= 1;
-                        end else begin                                         // Input two numbers
-                            if (!first_number_written) begin
-                                buffer_in_data <= first_number;
-                                in_valid <= 1;
-                                first_number_written <= 1'b1;
-                            end else begin
-                                buffer_in_data <= second_number;
-                                in_valid <= 1;
-                                first_number_written <= 0;
-                            end
-                        end
-                    end else begin
+                if (io_mode) begin                                          // Input mode
+                    if (!in_ready) begin
                         in_valid <= 0;
                     end
+                    if (!input_mode_nums_amount) begin // Input one number
+                        buffer_in_data <= first_number;
+                        in_valid <= 1;
+                    end else begin                                         // Input two numbers
+                        if (!first_number_written) begin
+                            buffer_in_data <= first_number;
+                            in_valid <= 1;
+                            first_number_written <= 1'b1;
+                        end else begin
+                            buffer_in_data <= second_number;
+                            in_valid <= 1;
+                        end
+                    end
                 end else begin                                                 // Output mode
-                    out_ready <= 1;
                     if (out_valid) begin
                         out_ready <= 0;
                     end
+                    out_ready <= 1;
                 end
             end
         end
